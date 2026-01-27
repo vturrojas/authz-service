@@ -1,0 +1,21 @@
+{
+  "id": "sample-policy",
+  "version": "v0",
+  "rules": [
+    {
+      "id": "allow-analyst-read-report",
+      "effect": "allow",
+      "actions": ["read"],
+      "resource_type": "report",
+      "subject_claims": { "role": "analyst" }
+    },
+    {
+      "id": "deny-prod-analyst-read-report",
+      "effect": "deny",
+      "actions": ["read"],
+      "resource_type": "report",
+      "subject_claims": { "role": "analyst" },
+      "context_claims": { "env": "prod" }
+    }
+  ]
+}

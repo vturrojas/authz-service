@@ -1,0 +1,9 @@
+1. cd backend
+2. python3 -m venv .venv
+3. . .venv/bin/activate
+4. pip install -U pip
+5. pip install -e ".[dev]"
+6. cd ..
+7. make up
+8. cd backend
+9. uvicorn app.main:app --reload
