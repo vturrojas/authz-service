@@ -6,6 +6,8 @@ decision trail.
 
 This project is intentionally not an IAM platform.
 
+---
+
 ## Purpose
 
 Authorization is treated as a first-class backend domain:
@@ -13,6 +15,8 @@ Authorization is treated as a first-class backend domain:
 - Deny-by-default semantics
 - Policy evaluation separated from enforcement
 - Deterministic, auditable decisions
+
+---
 
 ## Non-goals
 
@@ -25,6 +29,8 @@ Authorization is treated as a first-class backend domain:
 
 Rule of thumb:
 If a feature models people or organizations more than decisions, it is out of scope.
+
+---
 
 ## API (v0)
 
@@ -43,6 +49,8 @@ Outputs:
 - policy_version
 - matched_rule_ids
 
+---
+
 ## Policy model
 
 - Ordered rules
@@ -56,11 +64,15 @@ Outputs:
 - Reload uses file mtime checks; no watchers
 - This is intentionally single-policy v0
 
+---
+
 ## Evaluation semantics
 
 - Deterministic
 - Deny-by-default
 - Same inputs + same policy set => same decision
+
+--
 
 ## Audit trail
 
@@ -72,11 +84,15 @@ Each decision produces an append-only audit record including:
 - timestamp
 - correlation / decision id
 
+---
+
 ## Tradeoffs
 
 - Correctness favored over latency (no caching initially)
 - Simplicity favored over expressiveness
 - Operator usefulness favored over exhaustiveness
+
+---
 
 ## Project layout
 
@@ -85,3 +101,31 @@ backend/app/api      -> HTTP routes only
 backend/app/services -> orchestration
 backend/app/db       -> persistence
 backend/tests        -> tests
+
+---
+
+## Operational conventions
+
+Correlation ID: X-Correlation-Id accepted + echoed on all responses
+Included in:
+error bodies
+audit records
+Errors: {"error": {"code","message","details?","correlation_id"}}
+Audit behavior: if auditing enabled and write fails → 500 (no silent loss)
+
+---
+
+## Quick smoke test
+
+1. Start the service:
+```bash
+cd backend
+export AUTHZ_POLICY_PATH=../policies/sample_policy.json
+export AUTHZ_AUDIT_PATH=../audit.jsonl
+fastapi dev app/main.py
+```
+
+2. Run:
+```bash
+./scripts/smoke.sh
+```
