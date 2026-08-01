@@ -111,7 +111,11 @@ Enforcement is intentionally left to downstream services.
 - Deny-by-default
 - Same inputs + same policy → same decision
 
-No caching is applied in the initial implementation.
+The provider caches the parsed active policy within each process. With reload
+enabled, it throttles filesystem mtime checks using `AUTHZ_POLICY_MIN_MTIME_S`
+(default: 0.5 seconds) and reloads after an mtime change. With reload disabled,
+the first successfully loaded policy remains cached for the process lifetime.
+There is no cross-process or distributed cache.
 
 ---
 
@@ -151,6 +155,15 @@ backend/tests             # Tests
 policies/                 # Example policies
 scripts/                  # Developer utilities
 ```
+
+---
+
+## Project guidance
+
+- [Architecture and trust boundaries](docs/architecture.md)
+- [Roadmap](ROADMAP.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 
 ---
 
