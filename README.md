@@ -169,6 +169,15 @@ scripts/                  # Developer utilities
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 
+Local quality commands:
+
+```bash
+make fmt   # Apply Ruff formatting
+make lint  # Check Ruff formatting and lint rules
+make test  # Run the test suite
+make ci    # Run the same lint and test gates used in CI
+```
+
 ---
 
 ## Operational conventions

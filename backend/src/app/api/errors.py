@@ -14,7 +14,9 @@ class ErrorBody:
     details: Optional[Dict[str, Any]] = None
 
 
-def error_response(request: Request, *, status_code: int, code: str, message: str, details=None) -> JSONResponse:
+def error_response(
+    request: Request, *, status_code: int, code: str, message: str, details=None
+) -> JSONResponse:
     cid = getattr(request.state, "correlation_id", None)
     payload: Dict[str, Any] = {
         "error": {

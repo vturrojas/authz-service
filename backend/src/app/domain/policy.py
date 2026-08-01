@@ -16,6 +16,7 @@ class PolicyRule:
     - resource_attrs is a subset match of request.resource.attrs
     - context_claims is a subset match of request.context
     """
+
     id: str
     effect: str  # "allow" | "deny"
     actions: Sequence[str]

@@ -23,6 +23,7 @@ class PolicyProvider:
     - This is a provider, not a registry. v0 assumes a single active policy.
     - Reload uses mtime checks (opt-in) to balance correctness and simplicity.
     """
+
     policy_path: Path
     reload_enabled: bool = True
     min_mtime_interval_s: float = 0.5
@@ -42,7 +43,9 @@ class PolicyProvider:
 
         # Reload-enabled: use mtime checks with a small throttle
         now = time.monotonic()
-        if (now - self._last_stat_at) < self.min_mtime_interval_s and self._cached_policy is not None:
+        if (
+            now - self._last_stat_at
+        ) < self.min_mtime_interval_s and self._cached_policy is not None:
             return self._cached_policy
         self._last_stat_at = now
 

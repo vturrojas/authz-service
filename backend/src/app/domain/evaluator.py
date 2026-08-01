@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping, Tuple
+from typing import Any, Mapping, Tuple
 
 from app.domain.policy import Policy, PolicyRule
 from app.domain.types import AuthorizationDecision, AuthorizationRequest
@@ -31,10 +31,14 @@ def evaluate(req: AuthorizationRequest, policy: Policy) -> AuthorizationDecision
 
     # Explicit deny wins
     if any(effect == DENY for effect, _ in matched):
-        return AuthorizationDecision(decision=DENY, reason="explicit_deny", matched_rule_ids=matched_rule_ids)
+        return AuthorizationDecision(
+            decision=DENY, reason="explicit_deny", matched_rule_ids=matched_rule_ids
+        )
 
     if any(effect == ALLOW for effect, _ in matched):
-        return AuthorizationDecision(decision=ALLOW, reason="matched_allow", matched_rule_ids=matched_rule_ids)
+        return AuthorizationDecision(
+            decision=ALLOW, reason="matched_allow", matched_rule_ids=matched_rule_ids
+        )
 
     return AuthorizationDecision(decision=DENY, reason="deny_by_default", matched_rule_ids=[])
 

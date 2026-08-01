@@ -1,6 +1,6 @@
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app
+
 
 def test_policy_unavailable_is_structured(monkeypatch):
     monkeypatch.delenv("AUTHZ_POLICY_PATH", raising=False)

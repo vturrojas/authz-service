@@ -11,6 +11,7 @@ class Subject:
 
     This is NOT a user directory record. Upstream authentication is assumed.
     """
+
     id: str
     claims: Mapping[str, Any]
 
@@ -20,6 +21,7 @@ class Resource:
     """
     A target of an action. Minimal shape: type is required; id/attrs are optional.
     """
+
     type: str
     id: Optional[str] = None
     attrs: Mapping[str, Any] = None  # optional bag of attributes

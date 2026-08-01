@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 
 from app.domain.evaluator import evaluate
 from app.domain.types import AuthorizationRequest, Resource, Subject

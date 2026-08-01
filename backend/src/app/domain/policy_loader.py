@@ -13,6 +13,7 @@ from app.domain.policy import Policy, PolicyRule
 # Pydantic models (I/O boundary)
 # ----------------------------
 
+
 class PolicyRuleDTO(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -38,6 +39,7 @@ class PolicyDTO(BaseModel):
 # ----------------------------
 # Public API
 # ----------------------------
+
 
 class PolicyLoadError(RuntimeError):
     pass
@@ -65,6 +67,7 @@ def load_policy_from_file(path: str | Path) -> Policy:
 # ----------------------------
 # Internals
 # ----------------------------
+
 
 def _parse_policy_obj(obj: Mapping[str, Any]) -> Policy:
     try:
