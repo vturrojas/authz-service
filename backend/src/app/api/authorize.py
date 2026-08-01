@@ -39,7 +39,7 @@ def authorize(request: Request, body: AuthorizeRequest) -> AuthorizeResponse:
     decision = evaluate(req, policy)
     decision_id = str(uuid.uuid4())
 
-    # Audit (best-effort, but explicit failure mode)
+    # Auditing is optional; when configured, a write failure prevents a decision response.
     sink = audit_sink_from_env()
     if sink is not None:
         record = AuditRecord(
