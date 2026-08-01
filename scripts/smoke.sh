@@ -11,6 +11,9 @@ POLICY_PATH="${AUTHZ_POLICY_PATH:-$ROOT_DIR/policies/sample_policy.json}"
 AUDIT_PATH="${AUTHZ_AUDIT_PATH:-$ROOT_DIR/audit.jsonl}"
 rm -f "$AUDIT_PATH"
 
+SMOKE_TMP_DIR="$(mktemp -d)"
+trap 'rm -rf -- "$SMOKE_TMP_DIR"' EXIT
+
 have() { command -v "$1" >/dev/null 2>&1; }
 hr() { echo "------------------------------------------------------------"; }
 
@@ -26,14 +29,26 @@ if ! have curl; then
   exit 1
 fi
 
-echo "[1/4] Health check"
-health_headers="$(curl -sS -D - "$API_BASE_URL/healthz" || true)"
-status_line="$(echo "$health_headers" | head -n 1)"
-echo "$status_line"
-if [[ "$status_line" != *"200"* ]]; then
-  echo "Health check failed. Is the server running?"
+if ! have python3; then
+  echo "ERROR: python3 is required"
   exit 1
 fi
+
+echo "[1/4] Health check"
+curl --fail-with-body --silent --show-error \
+  --output "$SMOKE_TMP_DIR/health.json" \
+  "$API_BASE_URL/healthz"
+python3 - "$SMOKE_TMP_DIR/health.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as response_file:
+    response = json.load(response_file)
+
+if response != {"ok": True}:
+    raise SystemExit(f"Unexpected health response: {response!r}")
+PY
+python3 -m json.tool "$SMOKE_TMP_DIR/health.json"
 echo
 
 echo "[2/4] Authorize allow-case (expects allow)"
@@ -45,13 +60,48 @@ ALLOW_PAYLOAD='{
   "context":{"env":"dev"}
 }'
 
-ALLOW_RESPONSE="$(curl -sS -D - \
-  -H "Content-Type: application/json" \
-  -H "X-Correlation-Id: $CID_ALLOW" \
-  -X POST "$API_BASE_URL/v1/authorize" \
-  -d "$ALLOW_PAYLOAD")"
+curl --fail-with-body --silent --show-error \
+  --dump-header "$SMOKE_TMP_DIR/allow.headers" \
+  --output "$SMOKE_TMP_DIR/allow.json" \
+  --header "Content-Type: application/json" \
+  --header "X-Correlation-Id: $CID_ALLOW" \
+  --request POST "$API_BASE_URL/v1/authorize" \
+  --data "$ALLOW_PAYLOAD"
 
-echo "$ALLOW_RESPONSE" | head -n 20
+python3 - "$SMOKE_TMP_DIR/allow.json" "$SMOKE_TMP_DIR/allow.headers" "$CID_ALLOW" <<'PY'
+import json
+import sys
+
+body_path, headers_path, correlation_id = sys.argv[1:]
+with open(body_path, encoding="utf-8") as response_file:
+    response = json.load(response_file)
+
+expected = {
+    "decision": "allow",
+    "reason": "matched_allow",
+    "matched_rule_ids": ["allow-analyst-read-report"],
+    "policy_id": "sample-policy",
+    "policy_version": "v0",
+}
+for field, value in expected.items():
+    if response.get(field) != value:
+        raise SystemExit(
+            f"Allow response mismatch for {field}: expected {value!r}, got {response.get(field)!r}"
+        )
+
+with open(headers_path, encoding="utf-8") as headers_file:
+    headers = headers_file.read().splitlines()
+actual_correlation_ids = [
+    line.split(":", 1)[1].strip()
+    for line in headers
+    if line.lower().startswith("x-correlation-id:")
+]
+if actual_correlation_ids != [correlation_id]:
+    raise SystemExit(
+        f"Allow correlation ID mismatch: expected {correlation_id!r}, got {actual_correlation_ids!r}"
+    )
+PY
+python3 -m json.tool "$SMOKE_TMP_DIR/allow.json"
 echo
 
 echo "[3/4] Authorize deny-case (expects deny if policy has prod deny rule)"
@@ -63,28 +113,110 @@ DENY_PAYLOAD='{
   "context":{"env":"prod"}
 }'
 
-DENY_RESPONSE="$(curl -sS -D - \
-  -H "Content-Type: application/json" \
-  -H "X-Correlation-Id: $CID_DENY" \
-  -X POST "$API_BASE_URL/v1/authorize" \
-  -d "$DENY_PAYLOAD")"
+curl --fail-with-body --silent --show-error \
+  --dump-header "$SMOKE_TMP_DIR/deny.headers" \
+  --output "$SMOKE_TMP_DIR/deny.json" \
+  --header "Content-Type: application/json" \
+  --header "X-Correlation-Id: $CID_DENY" \
+  --request POST "$API_BASE_URL/v1/authorize" \
+  --data "$DENY_PAYLOAD"
 
-echo "$DENY_RESPONSE" | head -n 20
+python3 - "$SMOKE_TMP_DIR/deny.json" "$SMOKE_TMP_DIR/deny.headers" "$CID_DENY" <<'PY'
+import json
+import sys
+
+body_path, headers_path, correlation_id = sys.argv[1:]
+with open(body_path, encoding="utf-8") as response_file:
+    response = json.load(response_file)
+
+expected = {
+    "decision": "deny",
+    "reason": "explicit_deny",
+    "matched_rule_ids": [
+        "allow-analyst-read-report",
+        "deny-prod-analyst-read-report",
+    ],
+    "policy_id": "sample-policy",
+    "policy_version": "v0",
+}
+for field, value in expected.items():
+    if response.get(field) != value:
+        raise SystemExit(
+            f"Deny response mismatch for {field}: expected {value!r}, got {response.get(field)!r}"
+        )
+
+with open(headers_path, encoding="utf-8") as headers_file:
+    headers = headers_file.read().splitlines()
+actual_correlation_ids = [
+    line.split(":", 1)[1].strip()
+    for line in headers
+    if line.lower().startswith("x-correlation-id:")
+]
+if actual_correlation_ids != [correlation_id]:
+    raise SystemExit(
+        f"Deny correlation ID mismatch: expected {correlation_id!r}, got {actual_correlation_ids!r}"
+    )
+PY
+python3 -m json.tool "$SMOKE_TMP_DIR/deny.json"
 echo
 
 echo "[4/4] Audit check"
-if [[ -f "$AUDIT_PATH" ]]; then
-  echo "Audit file exists: $AUDIT_PATH"
-  echo "Last 3 audit lines:"
-  tail -n 3 "$AUDIT_PATH"
-  echo
-  echo "Correlation ID lookups:"
-  grep "$CID_ALLOW" "$AUDIT_PATH" || true
-  grep "$CID_DENY" "$AUDIT_PATH" || true
-else
-  echo "Audit file not found at: $AUDIT_PATH"
-  echo "Did you start the server with AUTHZ_AUDIT_PATH set?"
+if [[ ! -s "$AUDIT_PATH" ]]; then
+  echo "ERROR: audit output is missing or empty at: $AUDIT_PATH"
+  echo "Start the service with AUTHZ_AUDIT_PATH set to the same path."
+  exit 1
 fi
+
+python3 - "$AUDIT_PATH" "$CID_ALLOW" "$CID_DENY" <<'PY'
+import json
+import sys
+
+audit_path, allow_correlation_id, deny_correlation_id = sys.argv[1:]
+records = []
+with open(audit_path, encoding="utf-8") as audit_file:
+    for line_number, line in enumerate(audit_file, start=1):
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError as error:
+            raise SystemExit(f"Invalid audit JSON on line {line_number}: {error}") from error
+
+expected_by_correlation_id = {
+    allow_correlation_id: {
+        "decision": "allow",
+        "reason": "matched_allow",
+        "matched_rule_ids": ["allow-analyst-read-report"],
+        "policy_id": "sample-policy",
+        "policy_version": "v0",
+    },
+    deny_correlation_id: {
+        "decision": "deny",
+        "reason": "explicit_deny",
+        "matched_rule_ids": [
+            "allow-analyst-read-report",
+            "deny-prod-analyst-read-report",
+        ],
+        "policy_id": "sample-policy",
+        "policy_version": "v0",
+    },
+}
+
+for correlation_id, expected in expected_by_correlation_id.items():
+    matches = [record for record in records if record.get("correlation_id") == correlation_id]
+    if len(matches) != 1:
+        raise SystemExit(
+            f"Expected one audit record for {correlation_id!r}, found {len(matches)}"
+        )
+    record = matches[0]
+    for field, value in expected.items():
+        if record.get(field) != value:
+            raise SystemExit(
+                f"Audit mismatch for {correlation_id!r} field {field}: "
+                f"expected {value!r}, got {record.get(field)!r}"
+            )
+PY
+
+echo "Audit file verified: $AUDIT_PATH"
+tail -n 2 "$AUDIT_PATH"
 
 hr
 echo "Smoke test complete"

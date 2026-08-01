@@ -8,6 +8,43 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
+def test_demo_authorize_request_matches_sample_policy(monkeypatch):
+    policy_file = Path(__file__).parents[3] / "policies" / "sample_policy.json"
+    correlation_id = "demo-authz-request"
+
+    monkeypatch.setenv("AUTHZ_POLICY_PATH", str(policy_file))
+    monkeypatch.setenv("AUTHZ_POLICY_RELOAD", "0")
+    monkeypatch.delenv("AUTHZ_AUDIT_PATH", raising=False)
+
+    client = TestClient(app)
+    response = client.post(
+        "/v1/authorize",
+        headers={"X-Correlation-Id": correlation_id},
+        json={
+            "subject": {"id": "user:123", "claims": {"role": "analyst"}},
+            "action": "read",
+            "resource": {
+                "type": "report",
+                "id": "rpt:9",
+                "attrs": {"classification": "cui"},
+            },
+            "context": {"env": "prod"},
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["decision"] == "deny"
+    assert body["reason"] == "explicit_deny"
+    assert body["matched_rule_ids"] == [
+        "allow-analyst-read-report",
+        "deny-prod-analyst-read-report",
+    ]
+    assert body["policy_id"] == "sample-policy"
+    assert body["policy_version"] == "v0"
+    assert response.headers["X-Correlation-Id"] == correlation_id
+
+
 def test_authorize_endpoint_allow(tmp_path: Path, monkeypatch):
     policy_file = tmp_path / "policy.json"
     policy_file.write_text(
