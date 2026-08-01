@@ -24,6 +24,34 @@ domain without building a full identity or access management system.
 
 ---
 
+## Authorization Is Not Assurance
+
+This service answers whether a requested action is permitted under an explicit policy and supplied context.
+
+It does not establish:
+
+- whether the underlying identity is trustworthy;
+- whether the input context is complete or accurate;
+- whether the requested action is safe under current conditions;
+- whether supporting evidence is sufficient;
+- whether the resulting decision should be relied upon outside the policy boundary.
+
+Authorization is one input to assurance—not assurance itself. Assurance requires additional evidence, validation, context, and review.
+
+### Trust assumptions
+
+- Upstream systems authenticate callers and supply accurate subject, resource,
+  and context attributes. This service does not verify identity or provenance.
+- Operators provide and protect the configured policy. Decisions are only as
+  trustworthy as that policy and its loading path.
+- Downstream systems enforce the returned decision at the action boundary. This
+  service returns a decision; it does not perform the requested action.
+- When auditing is enabled, a request fails if its audit record cannot be
+  written. The local JSONL sink does not itself provide replication, retention,
+  tamper evidence, or durable storage guarantees.
+
+---
+
 ## Non-goals
 
 - Not an identity system (no users, orgs, groups, SCIM)
