@@ -132,6 +132,10 @@ Each authorization decision produces an append-only audit record including:
 Auditing is opt-in via configuration and is treated as a correctness requirement,
 not a best-effort side effect.
 
+The repository-root `audit.jsonl` file is generated local output from smoke and
+development runs. It is ignored by Git and is not a fixture or durable evidence
+artifact.
+
 ---
 
 ## Tradeoffs
